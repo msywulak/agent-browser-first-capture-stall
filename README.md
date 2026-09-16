@@ -57,6 +57,15 @@ node analyse.mjs data/shipped-vs-previous.jsonl arm
 node analyse.mjs data/capture-ordinal.jsonl arm ordinal
 ```
 
+`pool.mjs` pools every run that recorded the ANGLE backend and sorts each
+capture by what was on the live Chrome command line, not by the arm it was meant
+to be. It prints the rate with the preset effective, the rate with it cancelled,
+and a two-proportion z-test:
+
+```sh
+node pool.mjs
+```
+
 ## Data
 
 Every file is one JSON object per line, one line per timed capture. `shotMs` is
@@ -70,6 +79,7 @@ at 3000 ms, which is far from either mode: captures land near 30 ms or near
 | `launch-delay-sweep.jsonl` | 96 | the pause between launch and the first capture |
 | `raw-cdp-control.jsonl` | 144 | the same Chrome driven over raw CDP instead of agent-browser |
 | `webgpu-preset-ab.jsonl` | 144 | the software-Vulkan preset, with and without a user `--use-angle` |
+| `preset-overridden.jsonl` | 96 | the preset with a user `--use-angle=swiftshader` cancelling it |
 | `shipped-vs-previous.jsonl` | 72 | the two configurations we run in production |
 | `knob-sweep.jsonl` | 120 | streaming disabled, WebGPU, scrollbars, WebMCP |
 | `dev-shm-and-preset.jsonl` | 144 | `--disable-dev-shm-usage`, alone and with the preset |

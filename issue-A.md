@@ -20,7 +20,9 @@ comment saying why. `--use-angle` is not.
 - L445-449 explains that user `--enable-features` values must be merged, because
   "appending them as a second switch would silently clobber the preset's
   features (e.g. drop the WebGPU preset's Vulkan)".
-- L480-495 pushes `--use-angle=vulkan` and the other Vulkan switches.
+- L480-495 is the preset block, and L490 pushes `--use-angle=vulkan`, followed by
+  `--use-vulkan=swiftshader`, `--use-webgpu-adapter=swiftshader` and
+  `--disable-vulkan-surface`.
 - L571 runs `args.extend(user_args)`, so anything the user passed lands last.
 
 ### Reproduce
