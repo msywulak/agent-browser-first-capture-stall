@@ -49,7 +49,7 @@ tr '\0' '\n' < /proc/$pid/cmdline | grep -- --use-angle
 ### Why this matters in practice
 
 On a Linux container with no GPU, the first `screenshot` of a session blocks
-about 9.5 seconds. I filed that separately. Turning on the WebGPU preset is what
+about 9.5 seconds, which I filed as #1859. Turning on the WebGPU preset is what
 reduces it, but only when no `--use-angle` of ours is also present.
 
 Measured on one image, arms interleaved per VM, each sample checked against the

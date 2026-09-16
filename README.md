@@ -5,7 +5,12 @@ on roughly half of sessions, on a Linux container with no GPU. Every later
 screenshot in the same session takes 25 to 50 ms.
 
 This repo holds the scripts and the raw measurements behind two issues filed
-against [vercel-labs/agent-browser](https://github.com/vercel-labs/agent-browser).
+against vercel-labs/agent-browser:
+
+- [#1859](https://github.com/vercel-labs/agent-browser/issues/1859), the first
+  screenshot of a session blocks until about 10 seconds after browser launch.
+- [#1860](https://github.com/vercel-labs/agent-browser/issues/1860), a user
+  `--use-angle` cancels the `--webgpu` preset that reduces it.
 
 Measured on agent-browser 0.37.1 with Chrome for Testing 153.0.8010.36, on
 Ubuntu 26.04.1 (Linux 6.18.49 x86_64), 4 vCPU, 8 GB, `/dev/shm` 64 MB, inside a

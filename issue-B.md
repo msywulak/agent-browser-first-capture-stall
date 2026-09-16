@@ -116,8 +116,8 @@ Pooled over 384 captures sorted by what was on the live Chrome command line, the
 preset was effective in 39/168 stalls (23%) and absent or cancelled in 78/216
 (36%), z = 2.72, p = 0.0065. It lowers the rate and does not remove it.
 
-A user `--use-angle` cancels the preset without saying so. I filed that
-separately.
+A user `--use-angle` cancels the preset without saying so, which I filed as
+#1860.
 
 ### What this rules out
 
