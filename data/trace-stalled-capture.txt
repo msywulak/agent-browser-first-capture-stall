@@ -1,0 +1,21 @@
+# Chrome trace of one stalled first capture (sample v1-trace-3), headed, WebGPU preset, no surface-sync fix.
+# Times are seconds since the first trace event. A second CDP client started tracing 1.19 s after the
+# `agent-browser open` command began. The capture ran from 1.25 s to 11.09 s after that command began (shotMs 9845).
+# pid 2217 is the browser process, 2424 the GPU process (Viz), 2322 a renderer. pid 2518 is a replacement GPU
+# process: attaching the tracer kills the first GPU process after the capture, an artifact of tracing.
+# The full trace is 16 MB and not committed. Excerpt:
+
++  0.674  pid 2322  disabled-by-default-devtools.timeline  Commit  {"frameSeqId": 23, "layerTreeId": 2}
++  0.674  pid 2322  cc,benchmark  LayerTreeHostImpl::ActivateSyncTree  {"main_frame_pipeline": {"main_frame_id": 9153469369743787345, "step": "ACTIVATE"}}
++  0.675  pid 2424  viz  Damage not visible.  {}
++ 10.331  pid 2424  viz  Surface deadline passed  {"FrameSinkId": "FrameSinkId(0, 1)"}
++ 10.331  pid 2424  viz  SurfaceSynchronizationEvent  {"duration_ms": 10000, "surface_id": "SurfaceId(FrameSinkId(0, 1), LocalSurfaceId(1, 1, 22CD8196D2AAAEDA4CBBF40AB234C9A2))"}
++ 10.377  pid 2424  viz  CopyOutputRequest  {"has_provided_task_runner": true, "success": true}
++ 10.470  pid 2518  viz  CopyOutputRequest  {"has_provided_task_runner": true, "success": false}
++ 10.473  pid 2518  viz  CopyOutputRequest  {"has_provided_task_runner": true, "success": false}
++ 10.476  pid 2518  viz  CopyOutputRequest  {"has_provided_task_runner": true, "success": true}
++ 10.479  pid 2518  viz  Damage not visible.  {}
++ 10.486  pid 2518  viz  Damage not visible.  {}
+
+# browser process LayerTreeHostImpl::DidNotProduceFrame with FrameSkippedReason kDrawThrottled:
+#   585 events from +0.599 to +10.328, one every 16.7 ms

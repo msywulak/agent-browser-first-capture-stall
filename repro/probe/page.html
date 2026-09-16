@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>vis probe</title>
+<script>
+(function(){
+  var v = window.__v = { origin: performance.timeOrigin, vis0: document.visibilityState, focus0: document.hasFocus(), ev: [], raf: [], to0: null, to500: null, samples: [], load: null, paint: [] };
+  var now = function(){ return Math.round(performance.now()); };
+  document.addEventListener('visibilitychange', function(){ v.ev.push([now(), document.visibilityState]); });
+  window.addEventListener('load', function(){ v.load = now(); });
+  function r(t){ if (v.raf.length < 1500) v.raf.push(Math.round(t)); if (performance.now() < 14000) requestAnimationFrame(r); }
+  requestAnimationFrame(r);
+  setTimeout(function(){ v.to0 = now(); }, 0);
+  setTimeout(function(){ v.to500 = now(); }, 500);
+  var n = 0, iv = setInterval(function(){ v.samples.push([now(), document.visibilityState[0]]); if (++n >= 26) clearInterval(iv); }, 500);
+  try { new PerformanceObserver(function(l){ l.getEntries().forEach(function(e){ v.paint.push([e.name, Math.round(e.startTime)]); }); }).observe({ type: 'paint', buffered: true }); } catch (e) {}
+})();
+</script></head><body><h1>probe</h1><p>visibility and frame timing</p></body></html>

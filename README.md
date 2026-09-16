@@ -1,6 +1,6 @@
 # agent-browser first-capture stall
 
-The first `screenshot` of an agent-browser session blocks for about 9.5 seconds on roughly half of sessions, on a Linux container with no GPU. Every later screenshot in the same session takes 25 to 50 ms.
+The first `screenshot` of an agent-browser session blocks for about 9.5 seconds on roughly half of sessions, on a Linux container with no GPU. Every later screenshot in the same session takes 25 to 50 ms. The cause is Chrome for Testing's WebUI toolbar, and one Chrome feature parameter removes it. See [Cause](#cause).
 
 This repo holds the scripts and the raw measurements behind two issues filed against vercel-labs/agent-browser:
 
@@ -9,7 +9,31 @@ This repo holds the scripts and the raw measurements behind two issues filed aga
 
 Measured on agent-browser 0.37.1 with Chrome for Testing 153.0.8010.36, on Ubuntu 26.04.1 (Linux 6.18.49 x86_64), 4 vCPU, 8 GB, `/dev/shm` 64 MB, inside a Vercel Sandbox Firecracker microVM with no GPU.
 
-## What the measurements show
+## Cause
+
+Chrome for Testing holds the browser window for up to 10 seconds while its WebUI toolbar paints. The `WebUIToolbarWebView` sets a surface-sync deadline of `deadline_in_frames` frames, 600 by default, on the toolbar and the active tab. Viz does not present the window until the toolbar's renderer paints or the deadline passes, and a `fromSurface` screenshot waits with it. agent-browser does not cause this.
+
+The feature is off in Chromium's source. Chrome for Testing is not Chrome-branded, so it applies Chromium's field-trial testing config, which puts it in `WebUIReloadButtonStudy`, group `EnabledWithSurfaceSync_20260609`. [`data/resolved-features.txt`](data/resolved-features.txt) shows the study in `chrome://version/?show-variations-cmd`, and [`data/trace-stalled-capture.txt`](data/trace-stalled-capture.txt) shows the 10,000 ms surface synchronization in a trace of a stalled capture.
+
+One parameter removes the stall:
+
+```sh
+AGENT_BROWSER_ARGS='--enable-features=InitialWebUISurfaceSync:deadline_in_frames/0'
+```
+
+| configuration | stalls without | stalls with | Fisher exact, two-sided |
+|---|---|---|---|
+| headless, no preset | 16/30 | 0/30 | p = 2e-6 |
+| headed under Xvfb, no preset | 8/54 | 0/78 | p = 6e-4 |
+| headed under Xvfb, `AGENT_BROWSER_WEBGPU=1` | 12/144 | 0/144 | p = 4e-4 |
+
+The "with" arms also passed `renderer_commit_delay_ms/0`, except 24 headed no-preset captures that used `deadline_in_frames/0` alone and stalled 0/24. Headed, `--disable-field-trial-config` stalled 0/72 and `--disable-features=InitialWebUI` 0/24.
+
+During a stall the page itself runs normally. In all 20 stalled launches of `06-page-state-probe.sh`, the page stayed `visible`, `requestAnimationFrame` ran at 60 Hz, and timers and `load` fired on time. Only `first-contentful-paint` moved, to 9892-9988 ms, 13-25 ms before the capture returned.
+
+The WebGPU preset and the `--use-angle` override below only changed how often a launch lost this race. The override is still a bug (#1860), and so is the same problem with `--disable-features`, which drops agent-browser's own `--disable-features=Translate`.
+
+## What the measurements showed before the cause was found
 
 The wait is not a cost of capturing. The capture finishes about 10 seconds after the browser launched, whenever you ask for it. Ask 0.6 s after launch and it blocks 9.6 s. Ask 5.6 s after launch and it blocks 4.7 s. Ask 12.6 s after launch and it does not block at all.
 
@@ -30,6 +54,16 @@ repro/01-first-capture.sh                       # the stall, in the fewest parts
 repro/02-launch-delay-sweep.sh                  # the wait is anchored to launch
 repro/03-webgpu-preset-ab.sh > out.jsonl        # the preset, and a user override
 repro/04-trace-the-call.sh                      # name the call that blocks
+repro/05-surface-sync-ab.sh > out.jsonl         # the surface-sync deadline, with the WebGPU preset
+repro/06-page-state-probe.sh > out.jsonl        # what the page sees during a stall, headed and headless
+repro/07-toolbar-flags-headed.sh > out.jsonl    # each flag that removes it, headed, no preset
+repro/08-resolved-features.sh                   # the feature state Chrome resolved
+```
+
+Scripts 05 to 08 ran with `AGENT_BROWSER_ARGS` set to the list below and strip or add entries per arm. 06 and 07 serve the probe page from `repro/probe/` on 127.0.0.1:8123, which needs `node`.
+
+```
+--disable-quic,--disable-blink-features=AutomationControlled,--no-first-run,--no-default-browser-check,--password-store=basic,--lang=en-US,--enable-unsafe-swiftshader,--ignore-gpu-blocklist,--disable-features=HttpsFirstBalancedModeAutoEnable,--enable-features=InitialWebUISurfaceSync:deadline_in_frames/0/renderer_commit_delay_ms/0
 ```
 
 Summarise any result file, or the data already in this repo:
@@ -37,6 +71,7 @@ Summarise any result file, or the data already in this repo:
 ```sh
 node analyse.mjs data/shipped-vs-previous.jsonl arm
 node analyse.mjs data/capture-ordinal.jsonl arm ordinal
+node page-state.mjs data/page-state-during-stall.jsonl
 ```
 
 `pool.mjs` pools every run that recorded the ANGLE backend and sorts each capture by what was on the live Chrome command line, not by the arm it was meant to be. It prints the rate with the preset effective, the rate with it cancelled, and a two-proportion z-test:
@@ -61,6 +96,13 @@ Every file is one JSON object per line, one line per timed capture. `shotMs` is 
 | `dev-shm-and-preset.jsonl` | 144 | `--disable-dev-shm-usage`, alone and with the preset |
 | `snapshot-and-second-target.jsonl` | 48 | `snapshot` before the capture, and a second target |
 | `strace-stalled-capture.txt` | 21 lines | every socket operation during one stalled capture |
+| `surface-sync-ab-1.jsonl` | 144 | no fix (`control`), the zero deadline (`nosync`), `--disable-field-trial-config`, headed with the preset |
+| `surface-sync-ab-2.jsonl` | 192 | no fix (`control`) and the zero deadline (`nosync`), headed with the preset |
+| `gpu-compositing-flags.jsonl` | 144 | `--disable-gpu-compositing` and `--disable-software-rasterizer`, headed with the preset |
+| `page-state-during-stall.jsonl` | 132 | headed and headless, with and without the zero deadline, each with the page's own log in `page` |
+| `surface-sync-headed-no-preset.jsonl` | 120 | each flag that removes the stall, headed without the preset |
+| `trace-stalled-capture.txt` | excerpt | Viz and compositor events from a Chrome trace of one stalled capture |
+| `resolved-features.txt` | excerpt | `chrome://version/?show-variations-cmd`: the toolbar study, and Translate dropped by a second `--disable-features` |
 
 ## Method
 

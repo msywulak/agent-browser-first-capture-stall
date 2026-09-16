@@ -1,0 +1,38 @@
+# chrome://version/?show-variations-cmd on Chrome for Testing 153.0.8010.36, launched by agent-browser 0.37.1 inside the VM.
+# "Command-line Variations" is the feature state Chrome resolved, not the raw command line. Excerpts, split on commas and
+# slashes and filtered by name.
+
+## 1. Production args, headed. The command line has two --disable-features switches:
+--disable-features=Translate
+--enable-features=NetworkService,NetworkServiceInProcess,Vulkan,InitialWebUISurfaceSync:deadline_in_frames/0/renderer_commit_delay_ms/0
+--disable-features=HttpsFirstBalancedModeAutoEnable
+
+Google Chrome for Testing	153.0.8010.36 (Official Build) (x86_64)
+Variations Source	field-trial-config (command line or about flags)
+Resolved --disable-features list contains:      HttpsFirstBalancedModeAutoEnable
+Resolved --disable-features list does not contain: Translate
+
+## 2. Same, without the user --disable-features=HttpsFirstBalancedModeAutoEnable. One switch on the command line:
+--disable-features=Translate
+
+Resolved --disable-features list contains:      Translate
+Resolved --enable-features list contains:       HttpsFirstBalancedModeAutoEnable<HttpsFirstBalancedModeAutoEnable
+
+## 3. Without the surface-sync parameter, headed and headless (identical for both). The testing config's study:
+*WebUIReloadButtonStudy
+WebUIReloadButtonStudy.EnabledWithSurfaceSync_20260609:WebUIReloadButtonDeferBrowserViewShow
+InitialWebUI<WebUIReloadButtonStudy
+InitialWebUISurfaceSync<WebUIReloadButtonStudy
+InitialWebUIWithoutExtensions<WebUIReloadButtonStudy
+WebUIReloadButton<WebUIReloadButtonStudy
+WebUIHomeButton<WebUIReloadButtonStudy
+WebUIBackForwardButton<WebUIReloadButtonStudy
+WebUISplitTabsButton<WebUIReloadButtonStudy
+BypassOutdatedSurfaceActivation<WebUIReloadButtonStudy
+# No InitialWebUISurfaceSync parameter appears, so deadline_in_frames keeps its default of 600.
+# With the user parameter, the params entry reads:
+StudyInitialWebUISurfaceSync.GroupInitialWebUISurfaceSync:deadline_in_frames/0/renderer_commit_delay_ms/0
+
+## 4. With --disable-field-trial-config:
+Variations Source	command line or about flags
+# No WebUIReloadButtonStudy and none of the WebUI toolbar features appear.
