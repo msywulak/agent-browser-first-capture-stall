@@ -1,22 +1,14 @@
 ### Summary
 
-On a Linux container with no GPU, the first `screenshot` of a browser session
-blocks for about 9.5 seconds on roughly half of sessions, then returns a correct
-image. Every later screenshot in the same session takes 25 to 50 ms.
+On a Linux container with no GPU, the first `screenshot` of a browser session blocks for about 9.5 seconds on roughly half of sessions, then returns a correct image. Every later screenshot in the same session takes 25 to 50 ms.
 
 Two measurements narrow it down.
 
-The wait is not a cost of capturing. The capture finishes about 10 seconds after
-the browser launched, whenever you ask for it. Ask 0.6 s after launch and it
-blocks 9.6 s. Ask 5.6 s after launch and it blocks 4.7 s. Ask 12.6 s after
-launch and it does not block.
+The wait is not a cost of capturing. The capture finishes about 10 seconds after the browser launched, whenever you ask for it. Ask 0.6 s after launch and it blocks 9.6 s. Ask 5.6 s after launch and it blocks 4.7 s. Ask 12.6 s after launch and it does not block.
 
-The daemon is not the one waiting. `Page.captureScreenshot` goes out on the wire
-immediately and Chrome does not answer for 9.1 s.
+The daemon is not the one waiting. `Page.captureScreenshot` goes out on the wire immediately and Chrome does not answer for 9.1 s.
 
-This reads as Chrome needing about 10 seconds before it can serve a
-`fromSurface` capture here, with the first capture waiting on that. We open one
-page per browser, so every capture we take is a first capture.
+This reads as Chrome needing about 10 seconds before it can serve a `fromSurface` capture here, with the first capture waiting on that. We open one page per browser, so every capture we take is a first capture.
 
 ### Reproduce
 
@@ -60,14 +52,11 @@ trial      first_ms    second_ms
 14               45           33
 ```
 
-9 of 14 first captures blocked between 9611 and 9672 ms. All 14 second captures
-took 30 to 49 ms. I expected the first capture to cost about what the second
-costs.
+9 of 14 first captures blocked between 9611 and 9672 ms. All 14 second captures took 30 to 49 ms. I expected the first capture to cost about what the second costs.
 
 ### The wait is anchored to browser launch
 
-Only the delay between launch and the first capture changes. 24 samples per arm,
-3 VMs, arms interleaved inside each VM:
+Only the delay between launch and the first capture changes. 24 samples per arm, 3 VMs, arms interleaved inside each VM:
 
 | delay from launch to capture | stalls | stalled duration | capture finished, from launch |
 |---|---|---|---|
@@ -75,14 +64,11 @@ Only the delay between launch and the first capture changes. 24 samples per arm,
 | 5.6 s | 10/24 | 4671-4726 ms | 10596-10721 ms |
 | 12.6 s | 0/24 | none | none |
 
-The stall shrinks by exactly the delay added, while the moment the capture
-finishes stays fixed. In a barer sequence, with no `set viewport` and headless,
-that constant was 9944 to 10005 ms from launch.
+The stall shrinks by exactly the delay added, while the moment the capture finishes stays fixed. In a barer sequence, with no `set viewport` and headless, that constant was 9944 to 10005 ms from launch.
 
 ### Chrome is the one not answering
 
-`strace` of the daemon's sockets during a stalled capture. These are all 21
-socket operations in the whole 9.1 seconds:
+`strace` of the daemon's sockets during a stalled capture. These are all 21 socket operations in the whole 9.1 seconds:
 
 ```
 01:28:54.166326 recvfrom(13, "{\"action\":\"screenshot\",...}", ...) = 125   # CLI to daemon
@@ -94,35 +80,27 @@ socket operations in the whole 9.1 seconds:
 01:29:03.286670 write(12, <PNG, 16119 bytes>)
 ```
 
-The daemon issues the call 0.6 ms after the request reaches it. The reply comes
-9.1 s later.
+The daemon issues the call 0.6 ms after the request reaches it. The reply comes 9.1 s later.
 
-Tracing changes the result, which is worth knowing before you try it. Attaching
-`strace` to the daemon at startup slows it enough that the capture lands past
-the deadline, and the stall disappears: 0 stalls in 10 runs. Attach just before
-the capture instead.
+Tracing changes the result, which is worth knowing before you try it. Attaching `strace` to the daemon at startup slows it enough that the capture lands past the deadline, and the stall disappears: 0 stalls in 10 runs. Attach just before the capture instead.
 
 ### The WebGPU preset moves the rate
 
-`AGENT_BROWSER_WEBGPU=1` is the only setting that changed anything. Its flags
-carry the comment "produces real pixels in GPU-less containers and CI".
+`AGENT_BROWSER_WEBGPU=1` is the only setting that changed anything. Its flags carry the comment "produces real pixels in GPU-less containers and CI".
 
 | configuration | stalls | rate |
 |---|---|---|
 | stock, headless | 18/36 | 50% |
 | stock plus `AGENT_BROWSER_WEBGPU=1` | 6/36 | 17% |
 
-Pooled over 384 captures sorted by what was on the live Chrome command line, the
-preset was effective in 39/168 stalls (23%) and absent or cancelled in 78/216
-(36%), z = 2.72, p = 0.0065. It lowers the rate and does not remove it.
+Pooled over 384 captures sorted by what was on the live Chrome command line, the preset was effective in 39/168 stalls (23%) and absent or cancelled in 78/216 (36%), z = 2.72, p = 0.0065. It lowers the rate and does not remove it.
 
 A user `--use-angle` cancels the preset without saying so, which I filed as
 #1860.
 
 ### What this rules out
 
-Each candidate got its own arm, interleaved per VM, with every sample checked
-against the live Chrome `/proc/<pid>/cmdline`:
+Each candidate got its own arm, interleaved per VM, with every sample checked against the live Chrome `/proc/<pid>/cmdline`:
 
 | candidate | result |
 |---|---|
@@ -140,16 +118,13 @@ against the live Chrome `/proc/<pid>/cmdline`:
 | CPU starvation | 4 vCPU on an idle VM, and the stalled durations span 60 ms |
 | a hard-coded deadline in the binary | `strings` finds no `8000` or `9000`. The six `10000`s are a request-timeout default and WebGPU probe timeouts, and `navigator.gpu.requestAdapter()` returns `null` in 4 ms here |
 
-`--debug` and `AGENT_BROWSER_DEBUG=1` did not localise it. The session log at
-`~/.agent-browser/<session>.log` holds only browser-discovery lines and nothing
-about the blocked call.
+`--debug` and `AGENT_BROWSER_DEBUG=1` did not localise it. The session log at `~/.agent-browser/<session>.log` holds only browser-discovery lines and nothing about the blocked call.
 
 ### Scripts and data
 
 Repro scripts and the raw measurements: https://github.com/msywulak/agent-browser-first-capture-stall
 
-`repro/01-first-capture.sh` is the script above. `repro/02-launch-delay-sweep.sh`
-produces the delay table. `repro/04-trace-the-call.sh` produces the strace.
+`repro/01-first-capture.sh` is the script above. `repro/02-launch-delay-sweep.sh` produces the delay table. `repro/04-trace-the-call.sh` produces the strace.
 
 ### Environment
 
@@ -158,14 +133,10 @@ produces the delay table. `repro/04-trace-the-call.sh` produces the strace.
 - Ubuntu 26.04.1, Linux 6.18.49 x86_64, 4 vCPU, 8 GB, `/dev/shm` 64 MB
 - Vercel Sandbox Firecracker microVM, region `iad1`, no GPU
 - WebGL renderer `ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)`
-- `agent-browser doctor --json` reports 10 pass, 0 warn, 0 fail, and its own
-  launch test reports `Headless launch + about:blank in 0.66s`
+- `agent-browser doctor --json` reports 10 pass, 0 warn, 0 fail, and its own launch test reports `Headless launch + about:blank in 0.66s`
 
 ### Possibly related
 
 - #1437, screenshot hangs at `Page.captureScreenshot` on macOS arm64 with Chrome
-  149. Same call. That one hangs indefinitely, while this one always releases at
-  the 10 second mark and returns a correct image. Both mechanisms discussed in
-  that thread, an idle compositor and SwiftShader raster starvation, are in the
-  table above.
+  149. Same call. That one hangs indefinitely, while this one always releases at the 10 second mark and returns a correct image. Both mechanisms discussed in that thread, an idle compositor and SwiftShader raster starvation, are in the table above.
 - #1743, headless daemon never starts a CDP screencast.
