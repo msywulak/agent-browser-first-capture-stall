@@ -146,7 +146,7 @@ about the blocked call.
 
 ### Scripts and data
 
-Repro scripts and the raw measurements: REPO_URL
+Repro scripts and the raw measurements: https://github.com/msywulak/agent-browser-first-capture-stall
 
 `repro/01-first-capture.sh` is the script above. `repro/02-launch-delay-sweep.sh`
 produces the delay table. `repro/04-trace-the-call.sh` produces the strace.

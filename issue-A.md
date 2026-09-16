@@ -84,7 +84,7 @@ already says a user value must not drop a preset feature.
 
 ### Scripts and data
 
-Repro scripts and the raw measurements: REPO_URL
+Repro scripts and the raw measurements: https://github.com/msywulak/agent-browser-first-capture-stall
 
 `repro/03-webgpu-preset-ab.sh` is the A/B above, including the arm where the
 preset is cancelled. Its `data/webgpu-preset-ab.jsonl` has one line per capture
